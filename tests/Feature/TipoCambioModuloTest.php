@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\TipoCambio;
 use App\Models\User;
-use App\Services\TipoCambio\BcbTipoCambioService;
 use Database\Seeders\RolesPermisosSeeder;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,13 +35,11 @@ class TipoCambioModuloTest extends TestCase
         return User::factory()->create()->assignRole($rol);
     }
 
-    private function registrar(string $fecha, string $valor, string $moneda = 'USD'): TipoCambio
+    private function registrar(string $fecha, string $valor): TipoCambio
     {
         return TipoCambio::create([
-            'fecha' => $fecha,
-            'moneda' => $moneda,
-            'tipo_cambio' => $valor,
-            'fuente' => BcbTipoCambioService::FUENTE,
+            'FECHA' => $fecha.' 00:00:00',
+            'CAMBIO' => (float) $valor,
         ]);
     }
 
@@ -99,7 +96,8 @@ class TipoCambioModuloTest extends TestCase
         $this->actingAs($this->usuarioConRol($rol))
             ->get(route('tipo-cambio.index'))
             ->assertOk()
-            ->assertSeeInOrder(['Fecha', 'Moneda', 'Tipo de cambio', 'Fuente', 'Fecha de registro'])
+            ->assertSeeInOrder(['Fecha', 'Tipo de cambio'])
+            ->assertDontSee('Fecha de registro')
             ->assertSeeInOrder(['22/10/2026', '21/10/2026', '20/10/2026'])
             ->assertSee('11,72500')
             ->assertSee('Actualizar');
@@ -137,11 +135,9 @@ class TipoCambioModuloTest extends TestCase
             ->assertSessionHas('success', 'Tipo de cambio registrado: USD 11.75 con vigencia 22/10/2026.');
 
         $registro = TipoCambio::sole();
-        $this->assertSame('2026-10-22', $registro->fecha->toDateString());
-        $this->assertSame('USD', $registro->moneda);
-        $this->assertSame('11.75000', $registro->tipo_cambio);
-        $this->assertSame(BcbTipoCambioService::FUENTE, $registro->fuente);
-        $this->assertLessThanOrEqual(50, strlen($registro->fuente));
+        $this->assertSame('2026-10-22', $registro->FECHA->toDateString());
+        $this->assertEqualsWithDelta(11.75, (float) $registro->CAMBIO, 0.0001);
+        $this->assertSame('cambios', $registro->getConnectionName());
     }
 
     public function test_actualizaciones_repetidas_no_duplican_y_corrigen_el_valor(): void
@@ -159,7 +155,7 @@ class TipoCambioModuloTest extends TestCase
             ->assertSessionHas('success', fn ($m) => str_starts_with($m, 'Tipo de cambio actualizado'));
 
         $this->assertSame(1, TipoCambio::count());
-        $this->assertSame('11.80000', TipoCambio::sole()->tipo_cambio);
+        $this->assertEqualsWithDelta(11.80, (float) TipoCambio::sole()->CAMBIO, 0.0001);
     }
 
     public function test_guarda_la_fecha_de_vigencia_del_dia_siguiente(): void
@@ -168,7 +164,7 @@ class TipoCambioModuloTest extends TestCase
 
         $this->actingAs($this->usuarioConRol('Gerente'))->post(route('tipo-cambio.actualizar'));
 
-        $this->assertSame('2026-10-23', TipoCambio::sole()->fecha->toDateString());
+        $this->assertSame('2026-10-23', TipoCambio::sole()->FECHA->toDateString());
     }
 
     public function test_bcb_no_disponible_informa_error_y_conserva_datos(): void
@@ -182,7 +178,7 @@ class TipoCambioModuloTest extends TestCase
             ->assertSessionHas('error', fn ($m) => str_contains($m, 'HTTP 503'));
 
         $this->assertSame(1, TipoCambio::count());
-        $this->assertSame('11.72500', TipoCambio::sole()->tipo_cambio);
+        $this->assertEqualsWithDelta(11.725, (float) TipoCambio::sole()->CAMBIO, 0.0001);
     }
 
     public function test_error_de_conexion_informa_error(): void
@@ -248,5 +244,34 @@ class TipoCambioModuloTest extends TestCase
         $this->assertSame('5 20 * * *', $evento->expression);
         $this->assertSame('America/La_Paz', $evento->timezone);
         $this->assertTrue($evento->withoutOverlapping);
+    }
+
+    public function test_usuarios_y_tipos_de_cambio_usan_conexiones_independientes(): void
+    {
+        $usuario = $this->usuarioConRol('Gerente');
+
+        $this->assertSame('usuarios', $usuario->getConnectionName());
+        $this->assertSame('pgsql', $usuario->getConnection()->getDriverName());
+        $this->assertSame('cambios', (new TipoCambio())->getConnectionName());
+        $this->assertSame('sqlite', TipoCambio::query()->getConnection()->getDriverName());
+        $this->assertNotSame(
+            $usuario->getConnection()->getDatabaseName(),
+            TipoCambio::query()->getConnection()->getDatabaseName()
+        );
+    }
+
+    public function test_actualiza_solo_la_fecha_publicada_y_no_duplica_si_ya_existe_con_hora(): void
+    {
+        $this->registrar('2026-10-21', '11.70000');
+        TipoCambio::create(['FECHA' => '2026-10-22 20:00:00', 'CAMBIO' => 11.70]);
+
+        $this->fakeBcb($this->portadaBcb());
+        $this->actingAs($this->usuarioConRol('Administrador'))->post(route('tipo-cambio.actualizar'));
+
+        $this->assertSame(2, TipoCambio::count());
+        $this->assertEqualsWithDelta(11.70, (float) TipoCambio::query()->whereDate('FECHA', '2026-10-21')->value('CAMBIO'), 0.0001);
+        $delDia = TipoCambio::query()->whereDate('FECHA', '2026-10-22')->sole();
+        $this->assertEqualsWithDelta(11.75, (float) $delDia->CAMBIO, 0.0001);
+        $this->assertSame('20:00:00', $delDia->FECHA->format('H:i:s'));
     }
 }

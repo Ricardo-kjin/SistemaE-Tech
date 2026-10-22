@@ -8,7 +8,13 @@ use Illuminate\Support\Facades\Route;
 Route::redirect('/', '/dashboard');
 
 Route::get('/dashboard', function () {
-    $ultimo = TipoCambio::query()->orderByDesc('fecha')->orderBy('moneda')->first();
+    $ultimo = null;
+
+    try {
+        $ultimo = TipoCambio::query()->orderByDesc('FECHA')->first();
+    } catch (\Illuminate\Database\QueryException) {
+        // El dashboard no debe caerse si SQL Server no está disponible.
+    }
 
     return view('dashboard', compact('ultimo'));
 })->middleware(['auth', 'permission:ver dashboard'])->name('dashboard');

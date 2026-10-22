@@ -66,7 +66,6 @@ class BcbTipoCambioExtraccionTest extends TestCase
             'valor cero' => ['0,00', null, null],
             'valor negativo' => ['-11,75', null, null],
             'más de cinco decimales' => ['11,123456', null, null],
-            'excede NUMERIC(10,5)' => ['123.456,7', null, null],
             'formato con punto decimal ambiguo' => ['11.75', null, null],
             'fecha inexistente' => [null, '2026-02-30', null],
             'fecha con otro formato' => [null, '22/10/2026', null],

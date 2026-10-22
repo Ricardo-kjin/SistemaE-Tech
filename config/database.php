@@ -112,6 +112,50 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        /*
+         | Usuarios, sesiones, caché, colas y Spatie Permission.
+         | Reutiliza las variables DB_* de la conexión actualmente configurada.
+         */
+        'usuarios' => [
+            'driver' => env('DB_DRIVER', 'pgsql'),
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_USERNAME', 'postgres'),
+            'password' => env('DB_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
+        /*
+         | Tipos de cambio: SQL Server CAMBIOS.dbo.CAMBIOS.
+         | En pruebas se cambia el driver a sqlite (nunca la base real).
+         */
+        'cambios' => [
+            'driver' => env('DB_CAMBIOS_DRIVER', 'sqlsrv'),
+            'url' => env('DB_CAMBIOS_URL'),
+            'host' => env('DB_CAMBIOS_INSTANCE')
+                ? env('DB_CAMBIOS_HOST', '34.29.162.77').'\\'.env('DB_CAMBIOS_INSTANCE')
+                : env('DB_CAMBIOS_HOST', '34.29.162.77'),
+            'port' => env('DB_CAMBIOS_PORT') ?: null,
+            'database' => env('DB_CAMBIOS_DRIVER', 'sqlsrv') === 'sqlite'
+                ? database_path('testing_cambios.sqlite')
+                : env('DB_CAMBIOS_DATABASE', 'CAMBIOS'),
+            'username' => env('DB_CAMBIOS_USERNAME', 'laravel_user'),
+            'password' => env('DB_CAMBIOS_PASSWORD', ''),
+            'charset' => env('DB_CAMBIOS_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'encrypt' => env('DB_CAMBIOS_ENCRYPT', 'yes'),
+            'trust_server_certificate' => env('DB_CAMBIOS_TRUST_SERVER_CERTIFICATE', true),
+            'login_timeout' => (int) env('DB_CAMBIOS_LOGIN_TIMEOUT', 8),
+            'foreign_key_constraints' => env('DB_CAMBIOS_FOREIGN_KEYS', true),
+        ],
+
     ],
 
     /*

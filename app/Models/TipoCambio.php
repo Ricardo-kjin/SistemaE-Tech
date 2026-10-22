@@ -6,23 +6,28 @@ use Illuminate\Database\Eloquent\Model;
 
 class TipoCambio extends Model
 {
-    protected $table = 'tipo_cambio';
+    protected $connection = 'cambios';
+
+    protected $table = 'CAMBIOS';
+
+    protected $primaryKey = 'FECHA';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
 
     public $timestamps = false;
 
     protected $fillable = [
-        'fecha',
-        'moneda',
-        'tipo_cambio',
-        'fuente',
+        'FECHA',
+        'CAMBIO',
     ];
 
     protected function casts(): array
     {
         return [
-            'fecha' => 'date',
-            'tipo_cambio' => 'decimal:5',
-            'fecha_registro' => 'datetime',
+            'FECHA' => 'datetime',
+            'CAMBIO' => 'float',
         ];
     }
 }

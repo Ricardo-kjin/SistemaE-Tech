@@ -6,9 +6,10 @@ use Carbon\CarbonImmutable;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
+use App\Models\TipoCambio;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -16,7 +17,7 @@ use Throwable;
 /**
  * Obtiene el tipo de cambio oficial publicado en la portada del Banco Central de Bolivia
  * (tarjeta "Tipo de cambio oficial", bolivianos por dólar estadounidense) y lo registra
- * en `tipo_cambio` de forma idempotente por (fecha, moneda).
+ * en CAMBIOS.dbo.CAMBIOS de forma idempotente por la fecha de vigencia (clave primaria FECHA).
  */
 class BcbTipoCambioService
 {
@@ -53,7 +54,6 @@ class BcbTipoCambioService
             $this->log()->info('Actualización completada.', [
                 'origen' => $origen,
                 'fecha' => $cotizacion->fecha,
-                'moneda' => $cotizacion->moneda,
                 'valor' => $cotizacion->valor,
                 'estado' => $resultado->estado,
             ]);
@@ -136,28 +136,59 @@ class BcbTipoCambioService
     }
 
     /**
-     * Inserta o actualiza en una sola sentencia atómica usando la restricción única (fecha, moneda).
-     * Solo modifica la fila existente si el valor o la fuente cambiaron.
+     * Inserta o actualiza por fecha de vigencia. La hora se normaliza a 00:00:00 en altas nuevas
+     * y no se altera FECHA de filas existentes (solo CAMBIO), para no duplicar ni mover otras fechas.
      */
     public function guardar(CotizacionBcb $cotizacion): string
     {
-        $fila = DB::selectOne(<<<'SQL'
-            INSERT INTO tipo_cambio (fecha, moneda, tipo_cambio, fuente)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT (fecha, moneda) DO UPDATE
-                SET tipo_cambio = EXCLUDED.tipo_cambio,
-                    fuente = EXCLUDED.fuente,
-                    fecha_registro = CURRENT_TIMESTAMP
-                WHERE tipo_cambio.tipo_cambio IS DISTINCT FROM EXCLUDED.tipo_cambio
-                   OR tipo_cambio.fuente IS DISTINCT FROM EXCLUDED.fuente
-            RETURNING (xmax = 0) AS insertado
-        SQL, [$cotizacion->fecha, $cotizacion->moneda, $cotizacion->valor, self::FUENTE]);
+        $fecha = CarbonImmutable::createFromFormat('!Y-m-d', $cotizacion->fecha, self::ZONA_HORARIA);
+        $valor = (float) $cotizacion->valor;
 
-        if ($fila === null) {
-            return ResultadoActualizacion::SIN_CAMBIOS;
+        try {
+            $existentes = TipoCambio::query()
+                ->whereDate('FECHA', $fecha->toDateString())
+                ->orderBy('FECHA')
+                ->get();
+
+            if ($existentes->count() > 1) {
+                throw new TipoCambioBcbException(
+                    "Hay {$existentes->count()} registros con la fecha {$fecha->format('d/m/Y')} en CAMBIOS.dbo.CAMBIOS. No se modificó ninguno para evitar actualizar la fecha equivocada."
+                );
+            }
+
+            $existente = $existentes->first();
+
+            if ($existente === null) {
+                TipoCambio::query()->create([
+                    'FECHA' => $fecha->startOfDay()->format('Y-m-d H:i:s'),
+                    'CAMBIO' => $valor,
+                ]);
+
+                return ResultadoActualizacion::CREADO;
+            }
+
+            if ($this->mismoValor((float) $existente->CAMBIO, $valor)) {
+                return ResultadoActualizacion::SIN_CAMBIOS;
+            }
+
+            $existente->CAMBIO = $valor;
+            $existente->save();
+
+            return ResultadoActualizacion::ACTUALIZADO;
+        } catch (TipoCambioBcbException $e) {
+            throw $e;
+        } catch (QueryException $e) {
+            throw new TipoCambioBcbException(
+                'No se pudo guardar en CAMBIOS.dbo.CAMBIOS: '.$e->getMessage(),
+                0,
+                $e
+            );
         }
+    }
 
-        return $fila->insertado ? ResultadoActualizacion::CREADO : ResultadoActualizacion::ACTUALIZADO;
+    private function mismoValor(float $actual, float $nuevo): bool
+    {
+        return abs($actual - $nuevo) < 0.0001;
     }
 
     private function extraerFecha(DOMXPath $xpath, DOMElement $tarjeta): string
@@ -215,8 +246,8 @@ class BcbTipoCambioService
         $entero = ltrim(str_replace('.', '', $partes[1]), '0') ?: '0';
         $decimales = rtrim($partes[2] ?? '', '0');
 
-        if (strlen($entero) > 5 || strlen($decimales) > 5) {
-            throw new TipoCambioBcbException("El valor publicado por el BCB ({$texto}) excede la precisión NUMERIC(10,5) de la tabla.");
+        if (strlen($decimales) > 5) {
+            throw new TipoCambioBcbException("El valor publicado por el BCB ({$texto}) tiene más decimales de los que se pueden validar de forma fiable.");
         }
 
         $valor = $decimales === '' ? $entero : "{$entero}.{$decimales}";

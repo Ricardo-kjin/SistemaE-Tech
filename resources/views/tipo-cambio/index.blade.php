@@ -28,9 +28,9 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
         </div>
     @endif
-    @if (session('error'))
+    @if (session('error') || ! empty($error))
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            {{ session('error') }}
+            {{ session('error') ?? $error }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
         </div>
     @endif
@@ -46,24 +46,18 @@
                     <thead>
                         <tr>
                             <th>Fecha</th>
-                            <th>Moneda</th>
                             <th class="text-end">Tipo de cambio</th>
-                            <th>Fuente</th>
-                            <th>Fecha de registro</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse ($registros as $registro)
                             <tr>
-                                <td class="text-nowrap">{{ $registro->fecha->format('d/m/Y') }}</td>
-                                <td>{{ $registro->moneda }}</td>
-                                <td class="text-end text-nowrap">{{ number_format((float) $registro->tipo_cambio, 5, ',', '.') }}</td>
-                                <td>{{ $registro->fuente }}</td>
-                                <td class="text-nowrap">{{ $registro->fecha_registro->format('d/m/Y H:i:s') }}</td>
+                                <td class="text-nowrap">{{ $registro->FECHA->format('d/m/Y') }}</td>
+                                <td class="text-end text-nowrap">{{ number_format((float) $registro->CAMBIO, 5, ',', '.') }}</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="text-center text-muted py-4">No hay registros de tipo de cambio.</td>
+                                <td colspan="2" class="text-center text-muted py-4">No hay registros de tipo de cambio.</td>
                             </tr>
                         @endforelse
                     </tbody>

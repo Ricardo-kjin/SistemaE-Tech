@@ -14,8 +14,8 @@
                     <div class="card-body">
                         <div class="small text-white-50">Último tipo de cambio registrado</div>
                         @if ($ultimo)
-                            <div class="fs-4 fw-bold">{{ $ultimo->moneda }} {{ number_format((float) $ultimo->tipo_cambio, 5, ',', '.') }}</div>
-                            <div class="small">Vigencia: {{ $ultimo->fecha->format('d/m/Y') }}</div>
+                            <div class="fs-4 fw-bold">{{ number_format((float) $ultimo->CAMBIO, 5, ',', '.') }}</div>
+                            <div class="small">Vigencia: {{ $ultimo->FECHA->format('d/m/Y') }}</div>
                         @else
                             <div class="fs-5">Sin registros</div>
                         @endif

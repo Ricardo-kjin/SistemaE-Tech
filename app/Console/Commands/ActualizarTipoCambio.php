@@ -10,7 +10,7 @@ class ActualizarTipoCambio extends Command
 {
     protected $signature = 'tipo-cambio:actualizar';
 
-    protected $description = 'Consulta el tipo de cambio oficial publicado por el BCB y lo registra en tipo_cambio';
+    protected $description = 'Consulta el tipo de cambio oficial publicado por el BCB y lo registra en CAMBIOS.dbo.CAMBIOS';
 
     public function handle(BcbTipoCambioService $servicio): int
     {
