@@ -9,9 +9,9 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// El BCB publica a las 20:00 (hora de Bolivia) el tipo de cambio vigente; se consulta 5 minutos después.
+// El BCB publica a las 20:00 (hora de Bolivia) el tipo de cambio vigente; se consulta a las 23:05.
 Schedule::command('tipo-cambio:actualizar')
-    ->dailyAt('20:05')
+    ->dailyAt('23:05')
     ->timezone(BcbTipoCambioService::ZONA_HORARIA)
     ->withoutOverlapping(10)
     ->appendOutputTo(storage_path('logs/tipo_cambio_scheduler.log'));

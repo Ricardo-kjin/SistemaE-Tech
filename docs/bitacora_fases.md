@@ -1,5 +1,46 @@
 # Bitácora de fases
 
+## Fase 1: SQL Server local DESKTOP-ALT6VO5 (23/10/2026)
+
+La conexión `cambios` dejó de apuntar al servidor remoto `34.29.162.77` y pasó al SQL Server local.
+
+### Instancia y puerto
+
+- Equipo `DESKTOP-ALT6VO5`.
+- Servicio `MSSQLSERVER` (instancia predeterminada SQL Server 2022, `MSSQL16.MSSQLSERVER`) en ejecución.
+- TCP/IP habilitado. `TcpPort=1433`, sin puertos dinámicos.
+- `sqlservr` escucha en `0.0.0.0:1433`.
+- `SQLBrowser` está detenido; no hace falta porque no es una instancia con nombre.
+- Drivers: `pdo_sqlsrv` y `sqlsrv` 5.11.1, ODBC 17 y 18 instalados.
+
+`.env` / `.env.example`:
+
+```
+DB_CAMBIOS_HOST=DESKTOP-ALT6VO5
+DB_CAMBIOS_PORT=1433
+DB_CAMBIOS_DATABASE=CAMBIOS
+DB_CAMBIOS_USERNAME=sa
+DB_CAMBIOS_PASSWORD=
+```
+
+`DB_CAMBIOS_INSTANCE` queda vacío. La contraseña de `sa` no se escribe en código ni en esta bitácora: hay que ponerla en `.env`.
+
+### Comprobaciones separadas
+
+1. PostgreSQL `usuarios` (base `cambio`): conectó. 2 usuarios, roles Administrador y Gerente.
+2. Laravel → `cambios` con `sa` y contraseña vacía: el host y el puerto sí responden. Falló el login: `SQLSTATE[28000] Error de inicio de sesión del usuario 'sa'`. No es firewall, servicio ni driver.
+3. Inspección de `dbo.CAMBIOS` con autenticación de Windows (solo diagnóstico, la app sigue usando `sa`): columnas `FECHA datetime NOT NULL` y `CAMBIO real NOT NULL`. 13118 filas, **todas con hora `00:00:00`**. Último registro visto: `2026-10-22 00:00:00` / `11.75`. El servicio que inserta a medianoche es coherente con los datos.
+
+Hasta que exista `DB_CAMBIOS_PASSWORD`, el módulo muestra el error de login y no escribe filas inventadas.
+
+### Archivos tocados en este ajuste
+
+`config/database.php` (host local, puerto 1433, usuario `sa`, instancia opcional), `.env`, `.env.example`, `docs/fases_proyecto.md`, este archivo.
+
+`php artisan test`: 58 pruebas, 167 aserciones, en verde, sobre `cambio_test` + SQLite. El Programador de tareas de Windows **no** tiene la tarea `Cod_Sistema Laravel Scheduler`.
+
+---
+
 ## Fase 1: Administración → Tipo Cambio — conexiones independientes (22/10/2026)
 
 ### Alcance
@@ -75,7 +116,7 @@ Vista con columnas Fecha y Tipo de cambio, paginación y botón `Actualizar`. Ex
 
 ### Scheduler
 
-Sigue en `routes/console.php` a las 20:05 `America/La_Paz`. **No está creado en el Programador de tareas.** Comando de Windows:
+Sigue en `routes/console.php` a las 23:05 `America/La_Paz`. **No está creado en el Programador de tareas.** Comando de Windows:
 
 ```
 schtasks /Create /TN "Cod_Sistema Laravel Scheduler" /SC MINUTE /MO 1 /TR "cmd /c cd /d C:\Personal\Cod_Sistema && C:\xampp\php\php.exe artisan schedule:run >> storage\logs\schedule_run.log 2>&1"
@@ -89,7 +130,7 @@ Linux: `* * * * * cd /ruta/al/proyecto && php artisan schedule:run >> /dev/null 
 
 - Usuarios: PostgreSQL `cambio_test`. Abortan si el default no es `cambio_test`.
 - Tipos de cambio: SQLite `database/testing_cambios.sqlite` (gitignored). Abortan si el driver de `cambios` es `sqlsrv`.
-- Permisos, listado, paginación, upsert por fecha, vigencia del día siguiente, HTTP 503, timeout, HTML inválido, lock, comando, horario 20:05, conexiones independientes, no tocar otras fechas.
+- Permisos, listado, paginación, upsert por fecha, vigencia del día siguiente, HTTP 503, timeout, HTML inválido, lock, comando, horario 23:05, conexiones independientes, no tocar otras fechas.
 
 No se usó el SQL Server real en pruebas destructivas.
 

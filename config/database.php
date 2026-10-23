@@ -132,20 +132,20 @@ return [
         ],
 
         /*
-         | Tipos de cambio: SQL Server CAMBIOS.dbo.CAMBIOS.
+         | Tipos de cambio: SQL Server local CAMBIOS.dbo.CAMBIOS.
          | En pruebas se cambia el driver a sqlite (nunca la base real).
          */
         'cambios' => [
             'driver' => env('DB_CAMBIOS_DRIVER', 'sqlsrv'),
             'url' => env('DB_CAMBIOS_URL'),
-            'host' => env('DB_CAMBIOS_INSTANCE')
-                ? env('DB_CAMBIOS_HOST', '34.29.162.77').'\\'.env('DB_CAMBIOS_INSTANCE')
-                : env('DB_CAMBIOS_HOST', '34.29.162.77'),
-            'port' => env('DB_CAMBIOS_PORT') ?: null,
+            'host' => filled(env('DB_CAMBIOS_INSTANCE'))
+                ? env('DB_CAMBIOS_HOST', 'DESKTOP-ALT6VO5').'\\'.env('DB_CAMBIOS_INSTANCE')
+                : env('DB_CAMBIOS_HOST', 'DESKTOP-ALT6VO5'),
+            'port' => env('DB_CAMBIOS_PORT', '1433'),
             'database' => env('DB_CAMBIOS_DRIVER', 'sqlsrv') === 'sqlite'
                 ? database_path('testing_cambios.sqlite')
                 : env('DB_CAMBIOS_DATABASE', 'CAMBIOS'),
-            'username' => env('DB_CAMBIOS_USERNAME', 'laravel_user'),
+            'username' => env('DB_CAMBIOS_USERNAME', 'sa'),
             'password' => env('DB_CAMBIOS_PASSWORD', ''),
             'charset' => env('DB_CAMBIOS_CHARSET', 'utf8'),
             'prefix' => '',

@@ -167,6 +167,19 @@ class TipoCambioModuloTest extends TestCase
         $this->assertSame('2026-10-23', TipoCambio::sole()->FECHA->toDateString());
     }
 
+    public function test_inserta_fecha_con_dia_mayor_a_12_normalizada_a_medianoche(): void
+    {
+        $this->fakeBcb($this->portadaBcb(fecha: '2026-10-23', valor: '11,84'));
+
+        $this->artisan('tipo-cambio:actualizar')
+            ->expectsOutputToContain('USD 11.84')
+            ->assertSuccessful();
+
+        $registro = TipoCambio::sole();
+        $this->assertSame('2026-10-23 00:00:00', $registro->FECHA->format('Y-m-d H:i:s'));
+        $this->assertEqualsWithDelta(11.84, (float) $registro->CAMBIO, 0.0001);
+    }
+
     public function test_bcb_no_disponible_informa_error_y_conserva_datos(): void
     {
         $this->registrar('2026-10-21', '11.72500');

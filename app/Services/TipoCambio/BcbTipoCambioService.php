@@ -142,11 +142,11 @@ class BcbTipoCambioService
     public function guardar(CotizacionBcb $cotizacion): string
     {
         $fecha = CarbonImmutable::createFromFormat('!Y-m-d', $cotizacion->fecha, self::ZONA_HORARIA);
+        $fechaSql = TipoCambio::fechaMedianoche($cotizacion->fecha);
         $valor = (float) $cotizacion->valor;
 
         try {
-            $existentes = TipoCambio::query()
-                ->whereDate('FECHA', $fecha->toDateString())
+            $existentes = TipoCambio::queryPorFechaCalendario($fechaSql)
                 ->orderBy('FECHA')
                 ->get();
 
@@ -159,10 +159,7 @@ class BcbTipoCambioService
             $existente = $existentes->first();
 
             if ($existente === null) {
-                TipoCambio::query()->create([
-                    'FECHA' => $fecha->startOfDay()->format('Y-m-d H:i:s'),
-                    'CAMBIO' => $valor,
-                ]);
+                TipoCambio::insertar($fechaSql, $valor);
 
                 return ResultadoActualizacion::CREADO;
             }
