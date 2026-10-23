@@ -1,5 +1,33 @@
 # Bitácora de fases
 
+## Fase 1: Sistema público de Tipo de Cambio, sin autenticación (23/10/2026)
+
+La aplicación dejó de exigir login. `/` muestra el listado de Tipo de Cambio. Se retiraron Breeze, Spatie Permission, el menú de usuarios y la dependencia funcional de PostgreSQL. No se ejecutaron migraciones destructivas ni se borraron bases.
+
+### Qué se retiró del flujo
+
+- Rutas y vistas de login, registro, recuperación de contraseña, logout y perfil.
+- Middleware `auth`, alias de Spatie y menús condicionados por `@can`.
+- Paquetes `spatie/laravel-permission` y `laravel/breeze`.
+- Conexión Laravel `usuarios`. Sesión, caché y cola pasan a `file` / `sync`.
+- Seeders de roles y usuarios iniciales.
+
+Las tablas de PostgreSQL `cambio` (users, roles, permisos) **no se eliminaron**.
+
+### Qué se conservó
+
+- Conexión `cambios` a SQL Server `CAMBIOS.dbo.CAMBIOS`.
+- Listado paginado, botón `Actualizar`, `BcbTipoCambioService`, comando `tipo-cambio:actualizar` y scheduler 23:05 `America/La_Paz`.
+- Esquema de `dbo.CAMBIOS` intacto.
+
+### Pruebas
+
+Las pruebas de autenticación se eliminaron. Las del módulo ya no usan `actingAs` ni `cambio_test`. Siguen usando SQLite `database/testing_cambios.sqlite` / `:memory:` para `cambios`.
+
+No hay commit.
+
+---
+
 ## Fase 1: SQL Server local DESKTOP-ALT6VO5 (23/10/2026)
 
 La conexión `cambios` dejó de apuntar al servidor remoto `34.29.162.77` y pasó al SQL Server local.

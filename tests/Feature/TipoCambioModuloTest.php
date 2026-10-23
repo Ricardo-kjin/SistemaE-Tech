@@ -3,36 +3,25 @@
 namespace Tests\Feature;
 
 use App\Models\TipoCambio;
-use App\Models\User;
-use Database\Seeders\RolesPermisosSeeder;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
-use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\PortadaBcb;
 use Tests\TestCase;
 
 class TipoCambioModuloTest extends TestCase
 {
     use PortadaBcb;
-    use RefreshDatabase;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(RolesPermisosSeeder::class);
         $this->travelTo(Carbon::parse('2026-10-22 21:00:00', 'America/La_Paz'));
         Sleep::fake();
-    }
-
-    private function usuarioConRol(string $rol): User
-    {
-        return User::factory()->create()->assignRole($rol);
     }
 
     private function registrar(string $fecha, string $valor): TipoCambio
@@ -49,52 +38,41 @@ class TipoCambioModuloTest extends TestCase
         Http::fake(['www.bcb.gob.bo/*' => Http::response($html, $estado, ['Content-Type' => 'text/html; charset=utf-8'])]);
     }
 
-    public static function roles(): array
+    public function test_la_raiz_muestra_el_dashboard_sin_autenticacion(): void
     {
-        return [['Administrador'], ['Gerente']];
-    }
-
-    public function test_invitado_es_redirigido_al_login(): void
-    {
-        $this->get(route('tipo-cambio.index'))->assertRedirect(route('login'));
-        $this->post(route('tipo-cambio.actualizar'))->assertRedirect(route('login'));
-        $this->get(route('dashboard'))->assertRedirect(route('login'));
-    }
-
-    public function test_usuario_sin_rol_no_tiene_acceso(): void
-    {
-        Http::fake();
-        $usuario = User::factory()->create();
-
-        $this->actingAs($usuario)->get(route('dashboard'))->assertForbidden();
-        $this->actingAs($usuario)->get(route('tipo-cambio.index'))->assertForbidden();
-        $this->actingAs($usuario)->post(route('tipo-cambio.actualizar'))->assertForbidden();
-        Http::assertNothingSent();
-    }
-
-    #[DataProvider('roles')]
-    public function test_rol_inicia_sesion_y_ve_dashboard_y_menu(string $rol): void
-    {
-        $usuario = $this->usuarioConRol($rol);
-
-        $this->post(route('login'), ['email' => $usuario->email, 'password' => 'password'])
-            ->assertRedirect(route('dashboard'));
-
-        $this->get(route('dashboard'))
+        $this->get('/')
             ->assertOk()
+            ->assertSee('Tipo Cambio')
             ->assertSee('Administración')
-            ->assertSee(route('tipo-cambio.index'), false);
+            ->assertSee('Actualizar')
+            ->assertDontSee('Iniciar sesión')
+            ->assertDontSee('Login')
+            ->assertDontSee('Cerrar sesión');
     }
 
-    #[DataProvider('roles')]
-    public function test_rol_consulta_registros_ordenados_por_fecha_descendente(string $rol): void
+    public function test_no_existen_rutas_de_autenticacion_ni_dashboard_privado(): void
+    {
+        $this->get('/login')->assertNotFound();
+        $this->get('/register')->assertNotFound();
+        $this->get('/forgot-password')->assertNotFound();
+        $this->get('/dashboard')->assertNotFound();
+        $this->post('/logout')->assertNotFound();
+
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('login'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('register'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('logout'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('dashboard'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('password.request'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('profile.edit'));
+    }
+
+    public function test_consulta_registros_ordenados_por_fecha_descendente(): void
     {
         $this->registrar('2026-10-20', '11.70000');
         $this->registrar('2026-10-22', '11.75000');
         $this->registrar('2026-10-21', '11.72500');
 
-        $this->actingAs($this->usuarioConRol($rol))
-            ->get(route('tipo-cambio.index'))
+        $this->get(route('tipo-cambio.index'))
             ->assertOk()
             ->assertSeeInOrder(['Fecha', 'Tipo de cambio'])
             ->assertDontSee('Fecha de registro')
@@ -110,27 +88,23 @@ class TipoCambioModuloTest extends TestCase
             $this->registrar($inicio->copy()->addDays($i)->toDateString(), '6.96000');
         }
 
-        $usuario = $this->usuarioConRol('Gerente');
-
-        $this->actingAs($usuario)->get(route('tipo-cambio.index'))
+        $this->get(route('tipo-cambio.index'))
             ->assertOk()
             ->assertSee('20/01/2026')
             ->assertDontSee('05/01/2026')
             ->assertSee('page=2', false);
 
-        $this->actingAs($usuario)->get(route('tipo-cambio.index', ['page' => 2]))
+        $this->get(route('tipo-cambio.index', ['page' => 2]))
             ->assertOk()
             ->assertSee('05/01/2026')
             ->assertDontSee('20/01/2026');
     }
 
-    #[DataProvider('roles')]
-    public function test_actualizar_registra_el_dato_oficial_del_bcb(string $rol): void
+    public function test_actualizar_registra_el_dato_oficial_del_bcb(): void
     {
         $this->fakeBcb($this->portadaBcb());
 
-        $this->actingAs($this->usuarioConRol($rol))
-            ->post(route('tipo-cambio.actualizar'))
+        $this->post(route('tipo-cambio.actualizar'))
             ->assertRedirect(route('tipo-cambio.index'))
             ->assertSessionHas('success', 'Tipo de cambio registrado: USD 11.75 con vigencia 22/10/2026.');
 
@@ -142,16 +116,14 @@ class TipoCambioModuloTest extends TestCase
 
     public function test_actualizaciones_repetidas_no_duplican_y_corrigen_el_valor(): void
     {
-        $usuario = $this->usuarioConRol('Administrador');
-
         $this->fakeBcb($this->portadaBcb());
-        $this->actingAs($usuario)->post(route('tipo-cambio.actualizar'));
-        $this->actingAs($usuario)->post(route('tipo-cambio.actualizar'))
+        $this->post(route('tipo-cambio.actualizar'));
+        $this->post(route('tipo-cambio.actualizar'))
             ->assertSessionHas('success', fn ($m) => str_contains($m, 'No hubo cambios'));
         $this->assertSame(1, TipoCambio::count());
 
         $this->fakeBcb($this->portadaBcb(valor: '11,80'));
-        $this->actingAs($usuario)->post(route('tipo-cambio.actualizar'))
+        $this->post(route('tipo-cambio.actualizar'))
             ->assertSessionHas('success', fn ($m) => str_starts_with($m, 'Tipo de cambio actualizado'));
 
         $this->assertSame(1, TipoCambio::count());
@@ -162,7 +134,7 @@ class TipoCambioModuloTest extends TestCase
     {
         $this->fakeBcb($this->portadaBcb(fecha: '2026-10-23'));
 
-        $this->actingAs($this->usuarioConRol('Gerente'))->post(route('tipo-cambio.actualizar'));
+        $this->post(route('tipo-cambio.actualizar'));
 
         $this->assertSame('2026-10-23', TipoCambio::sole()->FECHA->toDateString());
     }
@@ -185,8 +157,7 @@ class TipoCambioModuloTest extends TestCase
         $this->registrar('2026-10-21', '11.72500');
         $this->fakeBcb('Service Unavailable', 503);
 
-        $this->actingAs($this->usuarioConRol('Administrador'))
-            ->post(route('tipo-cambio.actualizar'))
+        $this->post(route('tipo-cambio.actualizar'))
             ->assertRedirect(route('tipo-cambio.index'))
             ->assertSessionHas('error', fn ($m) => str_contains($m, 'HTTP 503'));
 
@@ -198,8 +169,7 @@ class TipoCambioModuloTest extends TestCase
     {
         Http::fake(fn () => throw new ConnectionException('cURL error 28: Operation timed out'));
 
-        $this->actingAs($this->usuarioConRol('Administrador'))
-            ->post(route('tipo-cambio.actualizar'))
+        $this->post(route('tipo-cambio.actualizar'))
             ->assertSessionHas('error', fn ($m) => str_contains($m, 'No se pudo conectar con el BCB'));
 
         $this->assertSame(0, TipoCambio::count());
@@ -207,14 +177,12 @@ class TipoCambioModuloTest extends TestCase
 
     public function test_estructura_cambiada_o_valor_invalido_no_guarda_nada(): void
     {
-        $usuario = $this->usuarioConRol('Administrador');
-
         $this->fakeBcb($this->portadaSinTarjeta());
-        $this->actingAs($usuario)->post(route('tipo-cambio.actualizar'))
+        $this->post(route('tipo-cambio.actualizar'))
             ->assertSessionHas('error', fn ($m) => str_contains($m, 'No se encontró la tarjeta'));
 
         $this->fakeBcb($this->portadaBcb(valor: 's/d'));
-        $this->actingAs($usuario)->post(route('tipo-cambio.actualizar'))
+        $this->post(route('tipo-cambio.actualizar'))
             ->assertSessionHas('error', fn ($m) => str_contains($m, 'no es numérico'));
 
         $this->assertSame(0, TipoCambio::count());
@@ -226,8 +194,7 @@ class TipoCambioModuloTest extends TestCase
         $lock = Cache::lock('tipo-cambio:bcb:actualizar', 120);
         $this->assertTrue($lock->get());
 
-        $this->actingAs($this->usuarioConRol('Administrador'))
-            ->post(route('tipo-cambio.actualizar'))
+        $this->post(route('tipo-cambio.actualizar'))
             ->assertSessionHas('error', fn ($m) => str_contains($m, 'en curso'));
 
         Http::assertNothingSent();
@@ -248,29 +215,22 @@ class TipoCambioModuloTest extends TestCase
         $this->assertSame(1, TipoCambio::count());
     }
 
-    public function test_scheduler_ejecuta_a_las_20_05_hora_de_bolivia(): void
+    public function test_scheduler_ejecuta_a_las_23_05_hora_de_bolivia(): void
     {
         $evento = collect(app(Schedule::class)->events())
             ->first(fn ($e) => str_contains($e->command ?? '', 'tipo-cambio:actualizar'));
 
         $this->assertNotNull($evento);
-        $this->assertSame('5 20 * * *', $evento->expression);
+        $this->assertSame('5 23 * * *', $evento->expression);
         $this->assertSame('America/La_Paz', $evento->timezone);
         $this->assertTrue($evento->withoutOverlapping);
     }
 
-    public function test_usuarios_y_tipos_de_cambio_usan_conexiones_independientes(): void
+    public function test_tipos_de_cambio_usan_la_conexion_cambios(): void
     {
-        $usuario = $this->usuarioConRol('Gerente');
-
-        $this->assertSame('usuarios', $usuario->getConnectionName());
-        $this->assertSame('pgsql', $usuario->getConnection()->getDriverName());
         $this->assertSame('cambios', (new TipoCambio())->getConnectionName());
         $this->assertSame('sqlite', TipoCambio::query()->getConnection()->getDriverName());
-        $this->assertNotSame(
-            $usuario->getConnection()->getDatabaseName(),
-            TipoCambio::query()->getConnection()->getDatabaseName()
-        );
+        $this->assertNotSame('sqlsrv', TipoCambio::query()->getConnection()->getDriverName());
     }
 
     public function test_actualiza_solo_la_fecha_publicada_y_no_duplica_si_ya_existe_con_hora(): void
@@ -279,7 +239,7 @@ class TipoCambioModuloTest extends TestCase
         TipoCambio::create(['FECHA' => '2026-10-22 20:00:00', 'CAMBIO' => 11.70]);
 
         $this->fakeBcb($this->portadaBcb());
-        $this->actingAs($this->usuarioConRol('Administrador'))->post(route('tipo-cambio.actualizar'));
+        $this->post(route('tipo-cambio.actualizar'));
 
         $this->assertSame(2, TipoCambio::count());
         $this->assertEqualsWithDelta(11.70, (float) TipoCambio::query()->whereDate('FECHA', '2026-10-21')->value('CAMBIO'), 0.0001);

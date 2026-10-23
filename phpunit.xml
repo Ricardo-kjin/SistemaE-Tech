@@ -22,9 +22,8 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="usuarios" force="true"/>
-        <env name="DB_DRIVER" value="pgsql" force="true"/>
-        <env name="DB_DATABASE" value="cambio_test" force="true"/>
+        <env name="DB_CONNECTION" value="sqlite" force="true"/>
+        <env name="DB_DATABASE" value=":memory:" force="true"/>
         <env name="DB_CAMBIOS_DRIVER" value="sqlite" force="true"/>
         <env name="DB_CAMBIOS_INSTANCE" value="" force="true"/>
         <env name="MAIL_MAILER" value="array"/>

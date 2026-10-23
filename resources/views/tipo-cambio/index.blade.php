@@ -5,19 +5,16 @@
 @section('content')
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-4">
         <h1 class="mb-0">Tipo Cambio</h1>
-        @can('actualizar tipo cambio')
-            <form method="POST" action="{{ route('tipo-cambio.actualizar') }}" id="form-actualizar">
-                @csrf
-                <button type="submit" class="btn btn-primary" id="btn-actualizar">
-                    <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
-                    <span class="icono"><i class="fas fa-sync-alt me-1"></i></span>
-                    <span class="texto">Actualizar</span>
-                </button>
-            </form>
-        @endcan
+        <form method="POST" action="{{ route('tipo-cambio.actualizar') }}" id="form-actualizar">
+            @csrf
+            <button type="submit" class="btn btn-primary" id="btn-actualizar">
+                <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+                <span class="icono"><i class="fas fa-sync-alt me-1"></i></span>
+                <span class="texto">Actualizar</span>
+            </button>
+        </form>
     </div>
     <ol class="breadcrumb mb-4 mt-2">
-        <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
         <li class="breadcrumb-item">Administración</li>
         <li class="breadcrumb-item active">Tipo Cambio</li>
     </ol>

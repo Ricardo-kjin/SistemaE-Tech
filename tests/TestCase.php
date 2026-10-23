@@ -13,31 +13,10 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
-        if (config('database.connections.cambios.driver') === 'sqlite') {
-            $this->crearTablaCambiosDePrueba();
-        }
-    }
-
-    /**
-     * RefreshDatabase recrea el esquema de usuarios: nunca sobre `cambio` ni sobre SQL Server CAMBIOS.
-     */
-    protected function beforeRefreshingDatabase()
-    {
-        $base = config('database.connections.'.config('database.default').'.database');
-
-        if ($base !== 'cambio_test') {
-            throw new RuntimeException("Las pruebas de usuarios solo pueden ejecutarse sobre cambio_test (configurada: {$base}).");
-        }
-
-        $cambios = config('database.connections.cambios');
-
-        if (($cambios['driver'] ?? '') === 'sqlsrv') {
+        if (config('database.connections.cambios.driver') === 'sqlsrv') {
             throw new RuntimeException('Las pruebas no pueden usar el SQL Server real de CAMBIOS.');
         }
-    }
 
-    protected function afterRefreshingDatabase()
-    {
         $this->crearTablaCambiosDePrueba();
     }
 

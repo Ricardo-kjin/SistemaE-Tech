@@ -113,27 +113,9 @@ return [
         ],
 
         /*
-         | Usuarios, sesiones, caché, colas y Spatie Permission.
-         | Reutiliza las variables DB_* de la conexión actualmente configurada.
-         */
-        'usuarios' => [
-            'driver' => env('DB_DRIVER', 'pgsql'),
-            'url' => env('DB_URL'),
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'postgres'),
-            'password' => env('DB_PASSWORD', ''),
-            'charset' => env('DB_CHARSET', 'utf8'),
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => 'prefer',
-        ],
-
-        /*
          | Tipos de cambio: SQL Server local CAMBIOS.dbo.CAMBIOS.
          | En pruebas se cambia el driver a sqlite (nunca la base real).
+         | PostgreSQL / conexión `usuarios` ya no se usa: la aplicación no gestiona usuarios.
          */
         'cambios' => [
             'driver' => env('DB_CAMBIOS_DRIVER', 'sqlsrv'),

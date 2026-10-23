@@ -33,7 +33,7 @@ class TipoCambioController extends Controller
     public function actualizar(BcbTipoCambioService $servicio): RedirectResponse
     {
         try {
-            $mensaje = $servicio->actualizar('manual:'.auth()->user()->email)->mensaje();
+            $mensaje = $servicio->actualizar('manual:web')->mensaje();
 
             return redirect()->route('tipo-cambio.index')->with('success', $mensaje);
         } catch (TipoCambioBcbException $e) {
